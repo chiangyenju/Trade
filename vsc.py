@@ -3,12 +3,11 @@ import websocket
 import requests
 import json
 import pandas as pd
-import ta
 import matplotlib.pyplot as plt
-import math
-import pytz
+import numpy as np
 
-timezone = pytz.timezone("Asia/Taipei")
+
+timezone = 8
 endpoint = 'wss://stream.binance.com:9443/ws'
 symbol = 'ethusdt'
 symbol_C = symbol.upper()
@@ -42,11 +41,6 @@ def get_historical(symbol, interval, limit):
 def get_sma(close_p, rate = 30):
     return close_p.rolling(rate).mean()
 
-def get_bollinger_bands(close_p, sma, rate = 30):
-    std = close_p.rolling(rate).std()
-    bband_up = sma + 2 * std
-    bband_down = sma - 2 * std
-    return bband_up, bband_down
 
 
 def on_open(ws):
@@ -55,22 +49,6 @@ def on_open(ws):
 def on_message(ws, message):
     global df, rate, limit
     out = json.loads(message)
-    
-    if df.shape[0] < rate:
-        df = get_historical(symbol, interval, limit)
-        df.index = df['Close time']
-        df.drop(['Close time'], axis =1, inplace=True)
-        df['Closed'] = True
-        # sma = get_sma(df['Close'], rate)
-        # bband_up, bband_down = get_bollinger_bands(df['Close'], sma, rate)
-        # df['Sma'] = sma
-        # df['Bb_U'] = bband_up
-        # df['Bb_D'] = bband_down
-        # df.dropna(inplace=True)
-        print(df)
-    
-
-    
     out = pd.DataFrame({'Open':float(out['k']['o']),
                         'Close':float(out['k']['c']),
                         'High':float(out['k']['h']),
@@ -85,26 +63,11 @@ def on_message(ws, message):
     # out['Bb_U'] = bband_up.tail(1)[0]
     # out['Bb_D'] = bband_down.tail(1)[0]
     df = pd.concat([df,out], axis = 0)
-
-    
-    sma = get_sma(df['Close'], rate)
-    bband_up, bband_down = get_bollinger_bands(df['Close'], sma, rate)
     
     
     print(df)
     # df = df.tail(5)
     # df.drop(df[df['closed'] == False].index, axis=0, inplace=True)
-    plt.title(symbol + ' SMA_' + rate)
-    plt.xlabel('time')
-    plt.ylabel('Closing Prices')
-    plt.plot(df.close, label='Closing Prices')
-    plt.plot(sma, label= rate + ' SMA')
-    plt.plot(bband_up, label='Bollinger Up', c='g')
-    plt.plot(bband_down, label='Bollinger Down', c='r')
-    plt.legend()
-    plt.show()
-    
-
 
 
 ws = websocket.WebSocketApp(endpoint, on_message = on_message, on_open = on_open)
