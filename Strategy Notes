@@ -11,3 +11,8 @@ RSI < 40 即使條件成立，買入依然容易停損出場
     # c3 量大於前日
     # c4 收盤大於前日開盤 (discard)
     # c5 買入當下 RSI > 40
+
+
+Stop loss should be executed only after the candle is closed, to prevent being stopped by high or low values
+
+Store stop loss as a variable, when candle closed, if close price < stop loss, close position using market price
