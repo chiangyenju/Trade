@@ -16,3 +16,7 @@ RSI < 40 即使條件成立，買入依然容易停損出場
 Stop loss should be executed only after the candle is closed, to prevent being stopped by high or low values
 
 Store stop loss as a variable, when candle closed, if close price < stop loss, close position using market price
+
+
+Try waiting until price closes for taking profits too. If closed price > 4 * atr. Take profit according to previous close price.
+(After back test, especially including bear markets, it's better to just set take profit, instead of waiting for close price)
