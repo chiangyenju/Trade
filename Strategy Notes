@@ -17,15 +17,18 @@ RSI < 40 即使條件成立，買入依然容易停損出場
 交易質量好但交易量太少
 
 
+007
+標準多頭排列，走勢交易，回報率高
+    - KD 任意交叉即進場，較向下或向下交叉優
+    - 停損設收盤價 Close 再判定停損，較直接以打到停損價格出場，獲利好很多
+    - sl atr 3 > 5
+    - tp atr 6 > 4
 
 - Stop loss should be executed only after the candle is closed, to prevent being stopped by high or low values
-
 Store stop loss as a variable, when candle closed, if close price < stop loss, close position using market price
-(After back test, especially including bear markets, it's better to just set take profit, instead of waiting for close price)
 
 - Try waiting until price closes for taking profits too. If closed price > 4 * atr. Take profit according to previous close price.
 (After back test, especially including bear markets, it's better to just set take profit, instead of waiting for close price)
-
 
 - When price reached LONG stop loss, LONG position was closed, LONG SL order + SHORT SL order + SHORT TP order were all closed.
 Only LONG position TP order remains
