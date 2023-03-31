@@ -81,7 +81,7 @@ def create_raw(symbol, interval_arr, start_time, end_time, step):
 
         raw_df = raw_df[['Close_Time', 'Open', 'Close', "High", "Low", 'Volume']]
 
-        raw_df.to_hdf(f'klines_{symbol}_{interval}.h5', key='df', mode='w')
+        raw_df.to_csv(f'klines_{symbol}_{interval}.csv')
 
 
 # In[7]:
@@ -100,7 +100,7 @@ klines_cache = {}
 
 def get_klines(symbol, interval, start_time, end_time, step):
     if (symbol, interval) not in klines_cache:
-        klines_cache[(symbol, interval)] = pd.read_hdf(f'klines_{symbol}_{interval}.h5', key='df')
+        klines_cache[(symbol, interval)] = pd.read_csv(f'klines_{symbol}_{interval}.csv')
 
     df = klines_cache[(symbol, interval)].query(f"Close_Time >= {start_time} and Close_Time <= {end_time}")
 
@@ -135,14 +135,8 @@ def indicators(df, kd_direction):
         df['ema_'+str(i)] = ta.trend.ema_indicator(df.Close, window=i)
 
 # atr
-    true_range = ta.volatility.average_true_range(df.High, df.Low, df.Close)
-    atr = np.empty_like(df.Close)
-    atr[:] = np.nan
-    try:
-        atr[self._window - 1:] = true_range.rolling(self._window).mean()[self._window - 1:]
-    except IndexError:
-        pass
-    df['atr'] = atr
+    df['atr'] = ta.volatility.average_true_range(df.High, df.Low, df.Close)
+
     
 # rsi
     rsi_int = 14
