@@ -11,3 +11,7 @@ strategy done
 4/6 檢查 execute 
 1. 未開停利單，為何 LONG 被出場，是否被空方機器人影響？
 2. 檢查空單進場是否能順利進場，必要時以 futures ticker Close 價進場，而非 spot
+3. 檢查 LONG 停損，用 spot 出不了場
+
+4/7
+1.
