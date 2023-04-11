@@ -13,5 +13,5 @@ strategy done
 2. 檢查空單進場是否能順利進場，必要時以 futures ticker Close 價進場，而非 spot
 3. 檢查 LONG 停損，用 spot 出不了場
 
-4/7
-1.
+4/11
+RSI 50 以上，KD 小於 40 且交叉往上
