@@ -311,7 +311,7 @@ def check_tp(df, symbol):
                 stopPrice=mark_price,
                 stopLimitTimeInForce='GTC',
                 closePosition = 'true',
-                positionSide = 'SELL'
+                positionSide = 'SHORT'
             )
 
     except Exception as e:
@@ -372,12 +372,13 @@ def run(symbol):
             conditions(df)
             check_price(df, symbol)   
             # print(df.tail(1))
+            df.to_csv(f'SHORT_1h_ema_4h_ema_Multi.csv')
             # 檢查停損
             try:
                 positions_info = client.futures_account()['positions']
-                long_positions = [p for p in positions_info if p['positionSide'] == 'SHORT' and float(p['positionAmt']) != 0 and p['symbol'] == symbol.upper()]
+                short_positions = [p for p in positions_info if p['positionSide'] == 'SHORT' and float(p['positionAmt']) != 0 and p['symbol'] == symbol.upper()]
 
-                if long_positions:
+                if short_positions:
                     check_tp(df, symbol)
                     check_sl(df, symbol, current_k)
 

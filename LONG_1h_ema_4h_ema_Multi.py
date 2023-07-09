@@ -421,7 +421,7 @@ def run(symbol):
             conditions(df)
             check_price(df, symbol)
             # console_df[symbol] = df
-            # df.to_csv(f'{symbol}.csv')
+            df.to_csv(f'LONG_1h_ema_4h_ema_Multi.csv')
             # 更新狀態
             # console_log(console_df[symbol], symbol)    
 
