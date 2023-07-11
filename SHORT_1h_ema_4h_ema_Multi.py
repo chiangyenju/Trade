@@ -342,16 +342,10 @@ def check_price(df, symbol):
         time.sleep(1)
 
 
-loop_start_time = 0
-loop_end_time = 0
-
-line_count = 0
-max_lines = 1
 current_k = 0
-restart_countdown = 2 * 60 * 60 # restart in 2 hours
 
 def run(symbol):
-    global current_k, line_count, max_lines, restart_countdown, loop_start_time, loop_end_time, stop_loss_p
+    global current_k, stop_loss_p
 
     while True:
         # console_df = {}
@@ -372,7 +366,7 @@ def run(symbol):
             conditions(df)
             check_price(df, symbol)   
             # print(df.tail(1))
-            df.to_csv(f'SHORT_1h_ema_4h_ema_Multi.csv')
+            # df.to_csv(f'SHORT_1h_ema_4h_ema_Multi.csv')
             # 檢查停損
             try:
                 positions_info = client.futures_account()['positions']
@@ -384,6 +378,7 @@ def run(symbol):
 
                 else:
                     stop_loss_p = 0
+                    print(f'No SHORT position. No SL for {symbol}')
 
             except Exception as e:
                 time.sleep(3) 
@@ -393,3 +388,5 @@ def run(symbol):
             print("Connection error occurred:", e)
             print("Retrying in 5 seconds...")
             time.sleep(5)
+
+        time.sleep(3.5)    

@@ -390,20 +390,13 @@ def check_price(df, symbol):
         print(f'Error creating ENTRY order: {e}')
 
 
-loop_start_time = 0
-loop_end_time = 0
-
-line_count = 0
-max_lines = 1
 current_k = 0
-restart_countdown = 2 * 60 * 60 # restart in 2 hours
 
 def run(symbol):
-    global current_k, line_count, max_lines, restart_countdown, loop_start_time, loop_end_time, stop_loss_p
+    global current_k, stop_loss_p
 
     while True:
-        # loop_start_time = time.time()
-        # console_df = {}
+
         while True:
             try:
                 create_raw(symbol, interval_arr, step)
@@ -420,10 +413,8 @@ def run(symbol):
             indicators(df)
             conditions(df)
             check_price(df, symbol)
-            # console_df[symbol] = df
-            df.to_csv(f'LONG_1h_ema_4h_ema_Multi.csv')
+            # df.to_csv(f'LONG_1h_ema_4h_ema_Multi.csv')
             # 更新狀態
-            # console_log(console_df[symbol], symbol)    
 
             # 檢查停損
             try:
@@ -445,23 +436,6 @@ def run(symbol):
             print("Connection error occurred:", e)
             print("Retrying in 5 seconds...")
             time.sleep(5)
+
         
-        # print('----------------------------------------------------------------------------')
-            
-        # countdown for restarting session
-        # restart_countdown -= 1
-        # print(f'{restart_countdown} iterations until restart')
-
-        # if restart_countdown <= 100:
-        #     restart_and_run_all()
-
-        # count each loop time
-        # loop_end_time = time.time()
-        # print("Time taken to execute for loop:", loop_end_time - loop_start_time, "seconds")            
-
-        # line_count += 1
-        # if line_count >= max_lines:
-        #     clear_output(wait=True)
-        #     line_count = 0    
-        
-        time.sleep(3)
+        time.sleep(3.5)
