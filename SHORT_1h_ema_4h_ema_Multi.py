@@ -342,10 +342,14 @@ def check_price(df, symbol):
         time.sleep(1)
 
 
+from IPython.display import clear_output
+
 current_k = 0
+line_count = 0
+max_lines = 2
 
 def run(symbol):
-    global current_k, stop_loss_p
+    global current_k, line_count, max_lines, stop_loss_p
 
     while True:
         # console_df = {}
@@ -389,4 +393,9 @@ def run(symbol):
             print("Retrying in 5 seconds...")
             time.sleep(5)
 
+        line_count += 1
+        if line_count >= max_lines:
+            clear_output(wait=True)
+            line_count = 0 
+            
         time.sleep(3.5)    
