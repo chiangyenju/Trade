@@ -1,12 +1,17 @@
+import requests
+import websocket
+from IPython.display import clear_output
+
+import json
 import pandas as pd
 import numpy as np
 import datetime as dt
 import time
 import ta
 import os
-import requests
 
-strategy_name = 'SHORT_1h_ema_4h_ema'
+
+strategy_name = 'SHORT_1h_4h_ema_WS'
 
 def send_telegram_message(token, chat_id, text):
     api_url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -33,7 +38,7 @@ load_dotenv(dotenv_path)
 api_key = os.getenv('API_KEY')
 api_secret = os.getenv('SECRET_KEY')
 
-client = Client(api_key, api_secret, testnet = False)
+client = Client(api_key, api_secret)
 
 spot = client.get_account()
 s_bal = pd.DataFrame(spot['balances'])
@@ -48,8 +53,6 @@ send_telegram_message(telegram_token, telegram_chat_id, telegram_message)
 
 
 timezone = -3
-# symbol = 'injusdt'
-interval = '1h'
 
 # step between timestamps in milliseconds, 60000 = 1min 
 step = 60000 * 3600
@@ -60,9 +63,17 @@ def set_time():
     
     global start_time, end_time
     
-    # start epoch till now, use prior 5 days for this strategy
+    # start epoch till now, use prior 10 days for this strategy
     start_time = round(time.time() * 1000 - (86400 * 1000 * 10))
     end_time = round(time.time() * 1000)
+
+
+interval_arr = ['1h', '4h']
+ema_arr = [5, 22, 66]
+
+ep_per = 1
+sl_per = 1.02
+sl_det = 'Close'
 
 
 dataframes = {}
@@ -75,15 +86,14 @@ def create_raw(symbol, interval_arr, step):
         data = []
         while start_time < end_time:
             limit = min(step, end_time - start_time + 1)  # Adjust the limit for the last batch
-
+            
             while True:
                 try:
                     response = client.get_klines(symbol=symbol.upper(), interval=interval, limit=limit, startTime=start_time)
                     break
-                except Exception as e:
-                    print(f'Error create_raw: {e}')    
+                except:
                     time.sleep(5)
-
+            
             if len(response) == 0:
                 break  # No more data available, exit the loop
             data.extend(response)
@@ -99,22 +109,12 @@ def create_raw(symbol, interval_arr, step):
 
         raw_df = raw_df[['Open_Time', 'Open', 'Close', "High", "Low", 'Volume']]
 
-        dataframes[f'df_{interval}_{symbol}'] = raw_df
-
-
-
-interval_arr = ['1h', '4h']
-ema_arr = [8, 18, 38]
-
-
-ep_per = 0.997
-sl_per = 1.02
-sl_det = 'Close'
+        dataframes[f'{symbol}_{interval}'] = raw_df
 
 
 def get_klines(symbol, interval):
     global dataframes
-    df = dataframes[f'df_{interval}_{symbol}']
+    df = dataframes[f'{symbol}_{interval}']
     df = df[['Open_Time', 'Open', 'Close', "High", "Low", 'Volume']].astype(float)
     df = df.set_index('Open_Time')
 
@@ -133,16 +133,8 @@ def multi_timeframes(symbol):
         raw_df = get_klines(symbol, interval)
         # ema
         for ema in ema_arr:
-            column_name = f'ema_{ema}_{interval}'
+            column_name = f'ema_{ema}_{interval}' # eth 1h 4th ema
             df[column_name] = ta.trend.EMAIndicator(raw_df.Close, window=ema, fillna=True).ema_indicator()
-
-        # rsi
-    #     rsi = ta.momentum.RSIIndicator(raw_df.Close, window = rsi_int)
-    #     df[f'rsi_{interval}'] = rsi.rsi()
-
-        # atr
-    #         df['atr'] = ta.volatility.average_true_range(df.High, df.Low, df.Close)
-
 
     # reset index and set current index as a column
     df = df.reset_index()
@@ -155,26 +147,14 @@ def multi_timeframes(symbol):
 
     # fill up higher time frame empty values with equal interval between each value
     df = df.replace('', np.nan)
-    df['ema_8_4h'] = df['ema_8_4h'].interpolate()
-    df['ema_18_4h'] = df['ema_18_4h'].interpolate()
-    df['ema_38_4h'] = df['ema_38_4h'].interpolate()
+    df['ema_5_4h'] = df['ema_5_4h'].interpolate()
+    df['ema_22_4h'] = df['ema_22_4h'].interpolate()
+    df['ema_66_4h'] = df['ema_66_4h'].interpolate()
     symbol_dfs[f'df_{symbol}'] = df
     
     return symbol_dfs[f'df_{symbol}']
 
 
-# def check_cross(df, kd_dir):
-#     up = df['slow_k'] > df['slow_d']
-#     down = df['slow_k'] < df['slow_d']
-#     if kd_dir == 'Up':
-#         return up.diff() & up
-#     if kd_dir == 'Any':
-#         return up.diff()
-#     if kd_dir == 'Down':
-#         return down.diff() & down
-
-
-# def indicators(df, kd_dir):
 def indicators(df):    
     
 # bb    
@@ -184,29 +164,20 @@ def indicators(df):
     df['bb_u'] = bb.bollinger_hband()
     df['bb_m'] = bb.bollinger_mavg()
     df['bb_l'] = bb.bollinger_lband()  
-    
-# kd
-#     df['slow_k']= ta.momentum.stoch(df['High'], df['Low'], df['Close'], 14, 3)
-#     df['slow_d'] = ta.momentum.stoch_signal(df['High'], df['Low'], df['Close'], 14, 3)
-    
-# kd cross
-#     df['kd_cross'] = check_cross(df, kd_dir)
-
 
 
 def conditions(df):
     
-    df['c1'] = df['ema_8_1h'] <= df['ema_18_1h']
-    df['c2'] = df['ema_18_1h'] <= df['ema_38_1h']
-    df['c3'] = df['ema_8_4h'] <= df['ema_18_4h']
-    df['c4'] = df['Close'] >= df['ema_18_4h'] * ep_per
+    df['c1'] = df['ema_5_1h'] <= df['ema_66_1h']
+    df['c2'] = df['ema_66_1h'] <= df['ema_22_4h']
+    df['c3'] = df['ema_5_1h'] <= df['ema_22_4h']
+    df['c4'] = df['Close'] >= df['ema_22_4h'] * ep_per
 
     # 條件達成
     df['signal'] = df.c1 & df.c2 & df.c3 & df.c4
             
     # 下一根進場
     df['entry'] = False
-
 
 
 def cancel_orders(symbol):
@@ -228,13 +199,13 @@ def enter_position(df, symbol):
     #-----Calculate entry price-----#
     close_val = df['Close']
 
-    ema_18_val = df['ema_18_4h']
+    ema_22_val = df['ema_22_4h']
     
-    df.loc[df.index[-1], 'entry_p'] = ema_18_val.loc[close_val.index[-1]] * ep_per
-    df.loc[df.index[-1], 'stop_loss'] = ema_18_val.loc[close_val.index[-1]] * sl_per
+    df.loc[df.index[-1], 'entry_p'] = ema_22_val.loc[close_val.index[-1]] * ep_per
+    df.loc[df.index[-1], 'stop_loss'] = ema_22_val.loc[close_val.index[-1]] * sl_per
 
     #-----position attributes-----#
-    usdt_q = 200
+    usdt_q = 100
     quantity = round(usdt_q / df.loc[df.index[-1], 'Close'], 0)
 
     if quantity <= 0:
@@ -280,7 +251,6 @@ def enter_position(df, symbol):
     return df
 
 
-
 def check_sl(df, symbol, current_k):
     global stop_loss_p
 
@@ -310,7 +280,9 @@ def check_sl(df, symbol, current_k):
             mark_price = round(float(ticker['price']), 3)   
         
         try:
-
+            telegram_message = f'ALERT SL - {symbol}: {stop_loss_p} via {strategy_name}'
+            send_telegram_message(telegram_token, telegram_chat_id, telegram_message)
+            stop_loss_p = 0
             stop_loss_order = client.futures_create_order(
                 symbol=symbol.upper(),
                 side='BUY',
@@ -324,7 +296,6 @@ def check_sl(df, symbol, current_k):
         except Exception as e:
             print(f'Error check_sl: {e}')   
             time.sleep(1)
-
 
 
 def check_tp(df, symbol):
@@ -383,14 +354,12 @@ def check_tp(df, symbol):
         time.sleep(2)
 
 
-
 current_bar_pos = False
 def check_price(df, symbol):
     global current_k, current_bar_pos
     
     try:
-        if ((df.iloc[df.index[-1]]['signal']) & # 三線條件成立
-            (current_bar_pos == False)): # 本 K 未進場
+        if ((df.iloc[df.index[-1]]['signal']) and (current_bar_pos == False)): # 本 K 未進場
             enter_position(df, symbol)
             df.loc[df.index[-1], 'entry'] = True
             current_bar_pos = True
@@ -406,60 +375,145 @@ def check_price(df, symbol):
         time.sleep(1)
 
 
-from IPython.display import clear_output
-
 current_k = 0
 line_count = 0
 max_lines = 2
+symbol = ''
 
-def run(symbol):
-    global current_k, line_count, max_lines, stop_loss_p
-
-    while True:
-        # console_df = {}
-        while True:
-            try:
-                create_raw(symbol, interval_arr, step)
-                break
-            except ConnectionError as e:
-                print("Connection error occurred:", e)
-                print("Retrying in 5 seconds...")
-                time.sleep(5)
+def update_dataframe(df, open_time, open_price, close_price, high_price, low_price, volume):
+    global line_count, max_lines
+    if df.loc[df.index[-1], 'Open_Time'] == open_time:
+        try: 
+            df.loc[df.index[-1]] = [open_time, open_price, close_price, high_price, low_price, volume]
+            # print(df.tail(2))
+            
+            line_count += 1
+            if line_count >= max_lines:
+                clear_output(wait=True)
+                line_count = 0
                 
+        except Exception as e:
+            print(f'error update_dataframe try {e}')
+    else:
+        try: 
+            create_raw(symbol, interval_arr, step)
+        except Exception as e:
+            print(f'error update_dataframe else {e}')
+
+
+reconnect = True
+retry_count = 0
+max_retry = 10
+intv1_update = False
+intv2_update = False
+
+
+def on_message_wrapper(symbol):
+    
+    create_raw(symbol, interval_arr, step)
+
+    def on_message(ws, message):
+        global current_k, line_count, max_lines, stop_loss_p, intv1_update, intv2_update
+        # Handle incoming messages
+        data = json.loads(message)
         try:
+    
             set_time()
-            df = multi_timeframes(symbol)
-#                 indicators(df, kd_dir)
-            indicators(df)
-            conditions(df)
-            check_price(df, symbol)   
-            # print(df.tail(1))
-            # df.to_csv(f'SHORT_1h_ema_4h_ema_Multi.csv')
-            # 檢查停損
-            try:
-                positions_info = client.futures_account()['positions']
-                short_positions = [p for p in positions_info if p['positionSide'] == 'SHORT' and float(p['positionAmt']) != 0 and p['symbol'] == symbol.upper()]
-
-                if short_positions:
-                    check_tp(df, symbol)
-                    check_sl(df, symbol, current_k)
-
-                else:
-                    stop_loss_p = 0
-                    print(f'No SHORT position. No SL for {symbol}')
-
-            except Exception as e:
-                time.sleep(3) 
-
+            
+            kline_data = data['k']
+            # symbol = kline_data['s']
+            interval = kline_data['i']
+            open_time = kline_data['t']
+            open_price = kline_data['o']
+            close_price = kline_data['c']
+            high_price = kline_data['h']
+            low_price = kline_data['l']
+            volume = kline_data['v']
+    
+            if interval == interval_arr[0] and intv1_update == False:
+                update_dataframe(dataframes[f'{symbol}_{interval}'], open_time, open_price, close_price, high_price, low_price, volume)
+                intv1_update = True
+            if interval == interval_arr[1] and intv2_update == False:
+                update_dataframe(dataframes[f'{symbol}_{interval}'], open_time, open_price, close_price, high_price, low_price, volume)
+                intv2_update = True
                 
+            if intv1_update and intv2_update:
+                
+                df = multi_timeframes(symbol)
+                # df = dataframes[f'{symbol}_{intv}']
+        
+                indicators(df)
+                conditions(df)
+                check_price(df, symbol)
+                
+                try:
+                    positions_info = client.futures_account()['positions']
+                    short_positions = [p for p in positions_info if p['positionSide'] == 'SHORT' and float(p['positionAmt']) != 0 and p['symbol'] == symbol.upper()]
+        
+                    if short_positions:
+                    #     check_tp(df, symbol)
+                        check_sl(df, symbol, current_k)
+        
+                    # else:
+                    #     stop_loss_p = 0
+                    print(f'No SHORT position for {symbol}')
+                        # print(df[['Open_Time', 'Open', 'Low', 'Close', 'Volume', 'c1', 'c2', 'c3', 'c4', 'bb_l', 'ema_22_4h']].tail(3))
+                        # print('----------------------------------------------------------------------------')
+        
+                    intv1_update = False
+                    intv2_update = False
+                        
+                except Exception as e:
+                    print(f'Error WS for {symbol}: {e}')
+              
         except ConnectionError as e:
             print("Connection error occurred:", e)
-            print("Retrying in 5 seconds...")
-            time.sleep(5)
+            time.sleep(2)
 
-        line_count += 1
-        if line_count >= max_lines:
-            clear_output(wait=True)
-            line_count = 0 
-            
-        time.sleep(3.5)    
+    return on_message
+        
+def on_error(ws, error):
+    global reconnect, retry_count
+    print(f"WebSocket Error: {error}")
+    reconnect = True
+    retry_count += 1
+    if retry_count >= max_retry:
+        print("Max retry attempts reached. Stopping reconnection.")
+        reconnect = False
+        ws.close()
+    else:
+        print(f"Reconnecting... Retry #{retry_count}")
+
+def on_close(ws):
+    global reconnect
+    print("WebSocket connection closed")
+    if reconnect:
+        print("Reconnecting...")
+        ws.run_forever()
+
+def on_open(ws):
+    global retry_count
+    # Reset retry count
+    retry_count = 0
+    # Subscribe to the one-hour Kline stream
+    ws.send(f'{{"method": "SUBSCRIBE", "params": ["{symbol}@kline_1h"], "id": 1}}')
+    # Subscribe to the four-hour Kline stream
+    ws.send(f'{{"method": "SUBSCRIBE", "params": ["{symbol}@kline_4h"], "id": 2}}')
+
+def run(symbol_run):
+    
+    global symbol
+    
+    # WebSocket connection URL
+    url = "wss://stream.binance.com:9443/ws"
+    symbol = symbol_run
+    
+    while reconnect:
+        # Create a WebSocket connection
+        websocket.enableTrace(False)  # Uncomment to enable tracing/debugging
+        ws = websocket.WebSocketApp(url, on_error=on_error, on_close=on_close)
+        ws.on_message = on_message_wrapper(symbol)
+        ws.on_open = on_open
+    
+        # Start the WebSocket connection
+        ws.run_forever()
