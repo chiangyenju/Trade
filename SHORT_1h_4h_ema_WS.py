@@ -205,7 +205,7 @@ def enter_position(df, symbol):
     df.loc[df.index[-1], 'stop_loss'] = ema_22_val.loc[close_val.index[-1]] * sl_per
 
     #-----position attributes-----#
-    usdt_q = 100
+    usdt_q = 300
     quantity = round(usdt_q / df.loc[df.index[-1], 'Close'], 0)
 
     if quantity <= 0:
@@ -368,7 +368,7 @@ def check_price(df, symbol):
         if df['Open_Time'][len(df) - 1] != current_k:
 
             current_k = df['Open_Time'][len(df) - 1]
-            current_bar_pos = False
+            # current_bar_pos = False
             
     except Exception as e:
         print(f'Error check_price: {e}')   
@@ -403,7 +403,7 @@ def update_dataframe(df, open_time, open_price, close_price, high_price, low_pri
 
 reconnect = True
 retry_count = 0
-max_retry = 10
+max_retry = 12
 intv1_update = False
 intv2_update = False
 
@@ -413,7 +413,7 @@ def on_message_wrapper(symbol):
     create_raw(symbol, interval_arr, step)
 
     def on_message(ws, message):
-        global current_k, line_count, max_lines, stop_loss_p, intv1_update, intv2_update
+        global current_k, line_count, max_lines, stop_loss_p, intv1_update, intv2_update, current_bar_pos
         # Handle incoming messages
         data = json.loads(message)
         try:
@@ -448,17 +448,19 @@ def on_message_wrapper(symbol):
                 
                 try:
                     positions_info = client.futures_account()['positions']
-                    short_positions = [p for p in positions_info if p['positionSide'] == 'SHORT' and float(p['positionAmt']) != 0 and p['symbol'] == symbol.upper()]
+                    no_short_positions = [p for p in positions_info if p['positionSide'] == 'SHORT' and float(p['positionAmt']) == 0 and p['symbol'] == symbol.upper()]
         
-                    if short_positions:
+                    if no_short_positions:
                     #     check_tp(df, symbol)
-                        check_sl(df, symbol, current_k)
-        
+                        # check_sl(df, symbol, current_k)
+                        current_bar_pos = False
+                        
                     # else:
                     #     stop_loss_p = 0
-                    print(f'No SHORT position for {symbol}')
-                        # print(df[['Open_Time', 'Open', 'Low', 'Close', 'Volume', 'c1', 'c2', 'c3', 'c4', 'bb_l', 'ema_22_4h']].tail(3))
-                        # print('----------------------------------------------------------------------------')
+                    ot = df.loc[df.index[-1], 'Open_Time']
+                    cp = df.loc[df.index[-1], 'Close']
+ 
+                    print(f'{symbol}, {ot}, {cp}')
         
                     intv1_update = False
                     intv2_update = False

@@ -69,7 +69,7 @@ def set_time():
 
 
 interval_arr = ['1h', '4h']
-ema_arr = [8, 12, 38]
+ema_arr = [6, 22, 66]
 
 ep_per = 1
 sl_per = 0.99
@@ -147,9 +147,9 @@ def multi_timeframes(symbol):
 
     # fill up higher time frame empty values with equal interval between each value
     df = df.replace('', np.nan)
-    df['ema_8_4h'] = df['ema_8_4h'].interpolate()
-    df['ema_12_4h'] = df['ema_12_4h'].interpolate()
-    df['ema_38_4h'] = df['ema_38_4h'].interpolate()
+    df['ema_6_4h'] = df['ema_6_4h'].interpolate()
+    df['ema_22_4h'] = df['ema_22_4h'].interpolate()
+    df['ema_66_4h'] = df['ema_66_4h'].interpolate()
     symbol_dfs[f'df_{symbol}'] = df
     
     return symbol_dfs[f'df_{symbol}']
@@ -168,10 +168,10 @@ def indicators(df):
 
 def conditions(df):
     
-    df['c1'] = df['ema_8_1h'] >= df['ema_38_1h']
-    df['c2'] = df['ema_38_1h'] >= df['ema_12_4h']
-    df['c3'] = df['ema_8_1h'] >= df['ema_12_4h']
-    df['c4'] = df['Close'] <= df['ema_12_4h'] * ep_per
+    df['c1'] = df['ema_6_1h'] >= df['ema_66_1h']
+    df['c2'] = df['ema_66_1h'] >= df['ema_22_4h']
+    df['c3'] = df['ema_6_1h'] >= df['ema_22_4h']
+    df['c4'] = df['Close'] <= df['ema_22_4h'] * ep_per
 
     # 條件達成
     df['signal'] = df.c1 & df.c2 & df.c3 & df.c4
@@ -196,11 +196,11 @@ def enter_position(df, symbol):
     global stop_loss_p
 
     close_val = df['Close']
-    ema_12_val = df['ema_12_4h']
-    df.loc[df.index[-1], 'entry_p'] = ema_12_val.loc[close_val.index[-1]] * ep_per
-    df.loc[df.index[-1], 'stop_loss'] = ema_12_val.loc[close_val.index[-1]] * sl_per
+    ema_22_val = df['ema_22_4h']
+    df.loc[df.index[-1], 'entry_p'] = ema_22_val.loc[close_val.index[-1]] * ep_per
+    df.loc[df.index[-1], 'stop_loss'] = ema_22_val.loc[close_val.index[-1]] * sl_per
     
-    usdt_q = 100
+    usdt_q = 300
     quantity = round(usdt_q / df.loc[df.index[-1], 'Close'], 0)
 
     entry_p = None
@@ -353,7 +353,7 @@ def check_price(df, symbol):
 
             print('time changed')
             current_k = df['Open_Time'][len(df) - 1]
-            current_bar_pos = False
+            # current_bar_pos = False
             
     except Exception as e:
         print(f'Error check_price: {e}')
@@ -387,7 +387,7 @@ def update_dataframe(df, open_time, open_price, close_price, high_price, low_pri
 
 reconnect = True
 retry_count = 0
-max_retry = 10
+max_retry = 12
 intv1_update = False
 intv2_update = False
 
@@ -398,7 +398,7 @@ def on_message_wrapper(symbol):
     
 
     def on_message(ws, message):
-        global current_k, line_count, max_lines, stop_loss_p, intv1_update, intv2_update
+        global current_k, line_count, max_lines, stop_loss_p, intv1_update, intv2_update, current_bar_pos
         # Handle incoming messages
         data = json.loads(message)
         try:
@@ -433,21 +433,19 @@ def on_message_wrapper(symbol):
                 
                 try:
                     positions_info = client.futures_account()['positions']
-                    long_positions = [p for p in positions_info if p['positionSide'] == 'LONG' and float(p['positionAmt']) != 0 and p['symbol'] == symbol.upper()]
+                    no_long_positions = [p for p in positions_info if p['positionSide'] == 'LONG' and float(p['positionAmt']) == 0 and p['symbol'] == symbol.upper()]
         
-                    if long_positions:
+                    if no_long_positions:
+                        current_bar_pos = False
                     #     check_tp(df, symbol)
-                        check_sl(df, symbol, current_k)
+                        # check_sl(df, symbol, current_k)
         
                     # else:
                     #     stop_loss_p = 0
                     ot = df.loc[df.index[-1], 'Open_Time']
                     cp = df.loc[df.index[-1], 'Close']
-                    ep = round(df.loc[df.index[-1], 'ema_12_4h'], 4)
  
-                    print(f'{symbol}, {ot}, {cp}, {ep}')
-                    print(df[['c1', 'c2', 'c3', 'c4']].tail(1))
-                        # print('----------------------------------------------------------------------------')
+                    print(f'{symbol}, {ot}, {cp}')
         
                     intv1_update = False
                     intv2_update = False
